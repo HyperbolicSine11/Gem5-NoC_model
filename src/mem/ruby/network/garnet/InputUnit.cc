@@ -105,7 +105,8 @@ InputUnit::wakeup()
         } else {
             assert(virtualChannels[vc].get_state() == ACTIVE_);
         }
-
+        //SHX
+        std::cout <<m_direction<< " active VC: " << get_ocpd_vc() << std::endl;
 
         // Buffer the flit
         virtualChannels[vc].insertFlit(t_flit);
@@ -181,6 +182,16 @@ InputUnit::resetStats()
         m_num_buffer_reads[j] = 0;
         m_num_buffer_writes[j] = 0;
     }
+}
+
+uint32_t
+InputUnit::get_ocpd_vc()
+{
+    uint32_t num_ocpd_vc = 0;
+    for (auto& virtual_channel : virtualChannels) {
+        if (virtual_channel.get_state() == ACTIVE_) num_ocpd_vc++;
+    }
+    return num_ocpd_vc;
 }
 
 } // namespace garnet

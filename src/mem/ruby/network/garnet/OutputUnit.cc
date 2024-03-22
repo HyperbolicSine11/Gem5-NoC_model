@@ -52,6 +52,7 @@ OutputUnit::OutputUnit(int id, PortDirection direction, Router *router,
     m_vc_per_vnet(consumerVcs)
 {
     const int m_num_vcs = consumerVcs * m_router->get_num_vnets();
+    num_vcs = m_num_vcs;
     outVcState.reserve(m_num_vcs);
     for (int i = 0; i < m_num_vcs; i++) {
         outVcState.emplace_back(i, m_router->get_net_ptr(), consumerVcs);
@@ -182,6 +183,17 @@ uint32_t
 OutputUnit::functionalWrite(Packet *pkt)
 {
     return outBuffer.functionalWrite(pkt);
+}
+
+//SHX
+uint32_t
+OutputUnit::get_credit_sum()
+{
+    int total_credits = 0;
+    for(int vc = 0;vc < num_vcs;++vc){
+        total_credits = total_credits + this->get_credit_count(vc);
+    }
+    return total_credits;
 }
 
 } // namespace garnet

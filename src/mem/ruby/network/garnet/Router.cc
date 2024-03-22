@@ -39,6 +39,7 @@
 #include "mem/ruby/network/garnet/NetworkLink.hh"
 #include "mem/ruby/network/garnet/OutputUnit.hh"
 
+
 namespace gem5
 {
 
@@ -55,6 +56,7 @@ Router::Router(const Params &p)
     m_network_ptr(nullptr), routingUnit(this), switchAllocator(this),
     crossbarSwitch(this)
 {
+    m_init_q_value=0;
     m_input_unit.clear();
     m_output_unit.clear();
 }
@@ -74,10 +76,19 @@ Router::wakeup()
     DPRINTF(RubyNetwork, "Router %d woke up\n", m_id);
     assert(clockEdge() == curTick());
 
+    cal_max_q_value();
     // check for incoming flits
     for (int inport = 0; inport < m_input_unit.size(); inport++) {
         m_input_unit[inport]->wakeup();
     }
+
+    this->refresh_r_table();
+    m_num_total_ocp_vc = get_total_ocp_vc();
+    // std::cout<<m_id<<"Q table:"<<std::endl;
+    // for (const auto& pair : q_table) {
+    //     std::cout <<pair.first<< ": " << pair.second << std::endl;
+    // }
+
 
     // check for incoming credits
     // Note: the credit update is happening before SA
@@ -94,6 +105,9 @@ Router::wakeup()
 
     // Switch Traversal
     crossbarSwitch.wakeup();
+
+    std::cout<<m_num_total_ocp_vc<<std::endl;
+
 }
 
 void
@@ -144,6 +158,7 @@ Router::addOutPort(PortDirection outport_dirn,
     routingUnit.addRoute(routing_table_entry);
     routingUnit.addWeight(link_weight);
     routingUnit.addOutDirection(outport_dirn, port_num);
+    this->addtoRTable(port_num);
 }
 
 PortDirection
@@ -309,6 +324,92 @@ Router::functionalWrite(Packet *pkt)
     }
 
     return num_functional_writes;
+}
+
+
+// //SHX
+// void
+// Router::printWeightTable()
+// {
+//     weight_table = routingUnit.get_weight_table();
+//     for(size_t i = 0; i < weight_table.size(); ++i){
+//         DPRINTF(RubyNetwork, "Weight Table[%d]: %d\n",i,weight_table[i]);
+//         DPRINTF(RubyNetwork, "Weight Table size is %d\n",weight_table.size());
+//     }
+
+// }
+
+
+//SHX
+void
+Router::addtoQTable(Router *router, PortDirection dst_router_dirn)
+{
+    float q_value = router->m_init_q_value;
+    q_table.insert({dst_router_dirn,q_value});
+    //std::cout<<router->get_id()<<":"<<q_table[dst_router_dirn]<<std::endl;
+}
+
+//SHX
+void
+Router::addtoCongestionTable(PortDirection dst_router_dirn, Router *router)
+{
+    uint32_t *router_total_ocp_vc= &(router->m_num_total_ocp_vc);
+    m_congestion_table.insert({dst_router_dirn, router_total_ocp_vc});
+}
+
+//SHX
+void
+Router::addtoRTable(int port)
+{
+    int r_value = 0;
+    r_table.insert({port,r_value});
+}
+
+
+//SHX
+unsigned
+Router::get_port_credit_count(unsigned port)
+{
+    OutputUnit *output_unit = this->getOutputUnit(port);
+    unsigned credit_sum = output_unit->get_credit_sum();
+    return credit_sum;
+}
+
+//SHX
+void
+Router::refresh_r_table()
+{
+    for (auto& pair : r_table) {
+        pair.second = this->get_port_credit_count(pair.first);
+    }
+}
+
+//SHX
+void
+Router::cal_max_q_value()
+{
+    m_max_q_value = 0;
+    // get max q value
+    for (const auto& pair : q_table){
+        if(pair.second > m_max_q_value) m_max_q_value = pair.second;
+    }
+}
+
+//SHX
+void
+Router::calQTable(int port, Router* router, int vc){
+    routingUnit.calQTable(port,router,vc);
+}
+
+//SHX
+uint32_t
+Router::get_total_ocp_vc(){
+    uint32_t num_total_ocp_vc = 0;
+    for (const auto& inputunit : m_input_unit){
+        if ((inputunit->get_direction())!="Local") {
+            num_total_ocp_vc += inputunit->get_ocpd_vc();}
+    }
+    return num_total_ocp_vc;
 }
 
 } // namespace garnet

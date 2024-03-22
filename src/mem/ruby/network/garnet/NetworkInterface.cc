@@ -160,6 +160,7 @@ NetworkInterface::incrementStats(flit *t_flit)
     Tick network_delay =
         t_flit->get_dequeue_time() -
         t_flit->get_enqueue_time() - cyclesToTicks(Cycles(1));
+    DPRINTF(RubyNetwork, "flit:%s, Latency: %ld\n", *t_flit, network_delay);
     Tick src_queueing_delay = t_flit->get_src_delay();
     Tick dest_queueing_delay = (curTick() - t_flit->get_dequeue_time());
     Tick queueing_delay = src_queueing_delay + dest_queueing_delay;
@@ -234,7 +235,7 @@ NetworkInterface::wakeup()
 
             int vnet = t_flit->get_vnet();
             t_flit->set_dequeue_time(curTick());
-
+            DPRINTF(RubyNetwork, "Dequeue Time: %ld\n", t_flit->get_dequeue_time());
             // If a tail flit is received, enqueue into the protocol buffers
             // if space is available. Otherwise, exchange non-tail flits for
             // credits.

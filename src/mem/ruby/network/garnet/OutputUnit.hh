@@ -78,6 +78,8 @@ class OutputUnit : public Consumer
         return outVcState[vc].get_credit_count();
     }
 
+    uint32_t get_credit_sum();
+
     inline int
     get_outlink_id()
     {
@@ -114,6 +116,7 @@ class OutputUnit : public Consumer
     int m_vc_per_vnet;
     NetworkLink *m_out_link;
     CreditLink *m_credit_link;
+    int num_vcs;
 
     // This is for the network link to consume
     flitBuffer outBuffer;

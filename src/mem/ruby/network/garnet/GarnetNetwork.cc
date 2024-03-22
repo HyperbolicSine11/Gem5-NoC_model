@@ -363,6 +363,10 @@ GarnetNetwork::makeInternalLink(SwitchID src, SwitchID dest, BasicLink* link,
                         link->m_weight, credit_link,
                         m_routers[dest]->get_vc_per_vnet());
     }
+
+    //SHX
+    m_routers[src]->addtoQTable(m_routers[dest],src_outport_dirn);
+    m_routers[src]->addtoRouterTable(src_outport_dirn,m_routers[dest]);
 }
 
 // Total routers in the network

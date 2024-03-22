@@ -51,7 +51,10 @@ enum TrafficType {BIT_COMPLEMENT_ = 0,
                   TORNADO_ = 5,
                   TRANSPOSE_ = 6,
                   UNIFORM_RANDOM_ = 7,
-                  NUM_TRAFFIC_PATTERNS_};
+                  HOT_SPOT_ = 8,
+                  CUSTOM_ = 9,
+                  NUM_TRAFFIC_PATTERNS_
+                  };
 
 class Packet;
 class GarnetSyntheticTraffic : public ClockedObject

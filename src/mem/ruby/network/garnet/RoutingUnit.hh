@@ -75,13 +75,15 @@ class RoutingUnit
 
     // Custom Routing Algorithm using Port Directions
     int outportComputeCustom(RouteInfo route,
-                             int inport,
-                             PortDirection inport_dirn);
+                                  PortDirection inport_dirn,
+                                  std::unordered_map<PortDirection, float>* q_table,
+                                  std::unordered_map<PortDirection, uint32_t*> congestion_table);
 
     // Returns true if vnet is present in the vector
     // of vnets or if the vector supports all vnets.
     bool supportsVnet(int vnet, std::vector<int> sVnets);
-
+    std::vector<int> get_weight_table();
+    void calQTable(int outport, Router *router, int outvc);
 
   private:
     Router *m_router;

@@ -157,6 +157,8 @@ class InputUnit : public Consumer
 
     void resetStats();
 
+    uint32_t get_ocpd_vc();
+
   private:
     Router *m_router;
     int m_id;

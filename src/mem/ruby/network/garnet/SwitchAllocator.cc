@@ -201,7 +201,8 @@ SwitchAllocator::arbitrate_outports()
                             *t_flit,
                         m_router->curCycle());
 
-
+                //SHX
+                m_router->calQTable(outport, m_router, outvc);
                 // Update outport field in the flit since this is
                 // used by CrossbarSwitch code to send it out of
                 // correct outport.

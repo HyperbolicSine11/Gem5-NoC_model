@@ -186,11 +186,42 @@ GarnetSyntheticTraffic::generatePkt()
     int num_destinations = numDestinations;
     int radix = (int) sqrt(num_destinations);
     unsigned destination = id;
+    // unsigned destination1 = destination+1;
+    // unsigned destination2 = destination+2;
+    // unsigned destination3 = destination+3;
+    // unsigned destination4 = destination+4;
+    // unsigned destination5 = destination+5;
+    // unsigned destination6 = destination+6;
+    // unsigned destination7 = destination+7;
+
+
     int dest_x = -1;
     int dest_y = -1;
     int source = id;
+    // int source1 = id+1;
+    // int source2 = id+2;
+    // int source3 = id+3;
+    // int source4 = id+4;
+    // int source5 = id+5;
+    // int source6 = id+6;
+    // int source7 = id+7;
+
     int src_x = id%radix;
     int src_y = id/radix;
+    // int src_x1 = (id+1)%radix;
+    // int src_y1 = (id+1)/radix;
+    // int src_x2 = (id+2)%radix;
+    // int src_y2 = (id+2)/radix;
+    // int src_x3 = (id+3)%radix;
+    // int src_y3 = (id+3)/radix;
+    // int src_x4 = (id+4)%radix;
+    // int src_y4 = (id+4)/radix;
+    // int src_x5 = (id+5)%radix;
+    // int src_y5 = (id+5)/radix;
+    // int src_x6 = (id+6)%radix;
+    // int src_y6 = (id+6)/radix;
+    // int src_x7 = (id+7)%radix;
+    // int src_y7 = (id+7)/radix;
 
     if (singleDest >= 0)
     {
@@ -236,6 +267,12 @@ GarnetSyntheticTraffic::generatePkt()
         dest_x = (src_x + (int) ceil(radix/2) - 1) % radix;
         dest_y = src_y;
         destination = dest_y*radix + dest_x;
+    } else if (traffic == HOT_SPOT_) {
+        destination = random_mt.random<unsigned>(
+            (int)(num_destinations/2)-1 , (int)(num_destinations/2)
+            );
+    } else if (traffic == CUSTOM_) {
+        destination = random_mt.random<unsigned>(0, num_destinations - 1);
     }
     else {
         fatal("Unknown Traffic Type: %s!\n", traffic);
@@ -246,6 +283,20 @@ GarnetSyntheticTraffic::generatePkt()
     // The destination bits are embedded in the address after byte-offset.
     Addr paddr =  destination;
     paddr <<= blockSizeBits;
+    // Addr paddr1 =  destination1;
+    // paddr1 <<= blockSizeBits;
+    // Addr paddr2 =  destination2;
+    // paddr2 <<= blockSizeBits;
+    // Addr paddr3 =  destination3;
+    // paddr3 <<= blockSizeBits;
+    // Addr paddr4 =  destination4;
+    // paddr4 <<= blockSizeBits;
+    // Addr paddr5 =  destination5;
+    // paddr5 <<= blockSizeBits;
+    // Addr paddr6 =  destination6;
+    // paddr6 <<= blockSizeBits;
+    // Addr paddr7 =  destination7;
+    // paddr7 <<= blockSizeBits;
     unsigned access_size = 1; // Does not affect Ruby simulation
 
     // Modeling different coherence msg types over different msg classes.
@@ -275,6 +326,14 @@ GarnetSyntheticTraffic::generatePkt()
     MemCmd::Command requestType;
 
     RequestPtr req = nullptr;
+    // RequestPtr req1 = nullptr;
+    // RequestPtr req2 = nullptr;
+    // RequestPtr req3 = nullptr;
+    // RequestPtr req4 = nullptr;
+    // RequestPtr req5 = nullptr;
+    // RequestPtr req6 = nullptr;
+    // RequestPtr req7 = nullptr;
+
     Request::Flags flags;
 
     // Inject in specific Vnet
@@ -291,23 +350,57 @@ GarnetSyntheticTraffic::generatePkt()
     if (injReqType == 0) {
         // generate packet for virtual network 0
         requestType = MemCmd::ReadReq;
-        req = std::make_shared<Request>(paddr, access_size, flags,
-                                        requestorId);
+        req = std::make_shared<Request>(paddr, access_size, flags, requestorId);
+        // req1 = std::make_shared<Request>(paddr1, access_size, flags, requestorId);
+        // req2 = std::make_shared<Request>(paddr2, access_size, flags, requestorId);
+        // req3 = std::make_shared<Request>(paddr3, access_size, flags, requestorId);
+        // req4 = std::make_shared<Request>(paddr4, access_size, flags, requestorId);
+        // req5 = std::make_shared<Request>(paddr5, access_size, flags, requestorId);
+        // req6 = std::make_shared<Request>(paddr6, access_size, flags, requestorId);
+        // req7 = std::make_shared<Request>(paddr7, access_size, flags, requestorId);
+
     } else if (injReqType == 1) {
         // generate packet for virtual network 1
         requestType = MemCmd::ReadReq;
         flags.set(Request::INST_FETCH);
-        req = std::make_shared<Request>(
-            0x0, access_size, flags, requestorId, 0x0, 0);
+        req = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
         req->setPaddr(paddr);
+        // req1 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req1->setPaddr(paddr1);
+        // req2 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req2->setPaddr(paddr2);
+        // req3 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req3->setPaddr(paddr3);
+        // req4 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req4->setPaddr(paddr4);
+        // req5 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req5->setPaddr(paddr5);
+        // req6 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req6->setPaddr(paddr6);
+        // req7 = std::make_shared<Request>(0x0, access_size, flags, requestorId, 0x0, 0);
+        // req7->setPaddr(paddr7);
     } else {  // if (injReqType == 2)
         // generate packet for virtual network 2
         requestType = MemCmd::WriteReq;
-        req = std::make_shared<Request>(paddr, access_size, flags,
-                                        requestorId);
+        req = std::make_shared<Request>(paddr, access_size, flags, requestorId);
+        // req1 = std::make_shared<Request>(paddr1, access_size, flags, requestorId);
+        // req2 = std::make_shared<Request>(paddr2, access_size, flags, requestorId);
+        // req3 = std::make_shared<Request>(paddr3, access_size, flags, requestorId);
+        // req4 = std::make_shared<Request>(paddr4, access_size, flags, requestorId);
+        // req5 = std::make_shared<Request>(paddr5, access_size, flags, requestorId);
+        // req6 = std::make_shared<Request>(paddr6, access_size, flags, requestorId);
+        // req7 = std::make_shared<Request>(paddr7, access_size, flags, requestorId);
+
     }
 
     req->setContext(id);
+    // req1->setContext(id+1);
+    // req2->setContext(id+2);
+    // req3->setContext(id+3);
+    // req4->setContext(id+4);
+    // req5->setContext(id+5);
+    // req6->setContext(id+6);
+    // req7->setContext(id+7);
 
     //No need to do functional simulation
     //We just do timing simulation of the network
@@ -334,6 +427,9 @@ GarnetSyntheticTraffic::initTrafficType()
     trafficStringToEnum["tornado"] = TORNADO_;
     trafficStringToEnum["transpose"] = TRANSPOSE_;
     trafficStringToEnum["uniform_random"] = UNIFORM_RANDOM_;
+    trafficStringToEnum["hot_spot"] = HOT_SPOT_;
+    trafficStringToEnum["custom"] = CUSTOM_;
+
 }
 
 void

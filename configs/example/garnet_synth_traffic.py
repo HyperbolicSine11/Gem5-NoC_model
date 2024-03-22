@@ -57,6 +57,8 @@ parser.add_argument(
         "neighbor",
         "shuffle",
         "transpose",
+        "hot_spot",
+        "custom",
     ],
 )
 
@@ -139,6 +141,7 @@ cpus = [
     for i in range(args.num_cpus)
 ]
 
+
 # create the desired simulated system
 system = System(cpu=cpus, mem_ranges=[AddrRange(args.mem_size)])
 
@@ -173,7 +176,7 @@ root = Root(full_system=False, system=system)
 root.system.mem_mode = "timing"
 
 # Not much point in this being higher than the L1 latency
-m5.ticks.setGlobalFrequency("1ps")
+m5.ticks.setGlobalFrequency("500ps")
 
 # instantiate configuration
 m5.instantiate()

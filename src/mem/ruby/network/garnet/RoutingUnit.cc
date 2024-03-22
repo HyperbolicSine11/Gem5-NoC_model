@@ -34,8 +34,10 @@
 #include "base/compiler.hh"
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/InputUnit.hh"
+#include "mem/ruby/network/garnet/OutputUnit.hh"
 #include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
+#include <random>
 
 namespace gem5
 {
@@ -51,6 +53,7 @@ RoutingUnit::RoutingUnit(Router *router)
     m_router = router;
     m_routing_table.clear();
     m_weight_table.clear();
+
 }
 
 void
@@ -192,7 +195,7 @@ RoutingUnit::outportCompute(RouteInfo route, int inport,
             outportComputeXY(route, inport, inport_dirn); break;
         // any custom algorithm
         case CUSTOM_: outport =
-            outportComputeCustom(route, inport, inport_dirn); break;
+            outportComputeCustom(route, inport_dirn, m_router->getQTable(), m_router->getCongestionTable()); break;
         default: outport =
             lookupRoutingTable(route.vnet, route.net_dest); break;
     }
@@ -260,15 +263,221 @@ RoutingUnit::outportComputeXY(RouteInfo route,
     return m_outports_dirn2idx[outport_dirn];
 }
 
-// Template for implementing custom routing algorithm
-// using port directions. (Example adaptive)
+// SHX
+// QRoutingAlgorithm
 int
 RoutingUnit::outportComputeCustom(RouteInfo route,
-                                 int inport,
-                                 PortDirection inport_dirn)
+                                  PortDirection inport_dirn,
+                                  std::unordered_map<PortDirection, float>* q_table,
+                                  std::unordered_map<PortDirection, uint32_t*> congestion_table)
 {
-    panic("%s placeholder executed", __FUNCTION__);
+
+    PortDirection relative_dir;
+    PortDirection oppsite_relative_dir;
+    PortDirection outport_dirn = "Unknown";
+    PortDirection least_congested_dir = "Unkown";
+    std::set<PortDirection> masked_direction;
+    std::set<PortDirection> dyxy_candidate_dir;
+    bool use_QRA = false;
+    PortDirection q_table_dir = "Unknown";
+
+    int vnet = route.vnet;
+    NetDest msg_destination = route.net_dest;
+
+
+    [[maybe_unused]] int num_rows = m_router->get_net_ptr()->getNumRows();
+    int num_cols = m_router->get_net_ptr()->getNumCols();
+    assert(num_rows > 0 && num_cols > 0);
+
+    int my_id = m_router->get_id();
+    int my_x = my_id % num_cols;
+    int my_y = my_id / num_cols;
+
+    int dest_id = route.dest_router;
+    int dest_x = dest_id % num_cols;
+    int dest_y = dest_id / num_cols;
+
+    int x_hops = abs(dest_x - my_x);//indicates dst is on x axis
+    int y_hops = abs(dest_y - my_y);//indicates dst is on y axis
+
+    bool x_dirn = (dest_x >= my_x);
+    bool y_dirn = (dest_y >= my_y);
+
+    // already checked that in outportCompute() function
+    assert(!(x_hops == 0 && y_hops == 0));
+
+    if (x_hops > y_hops) {
+        if (x_dirn) { relative_dir = "East";}
+        else { relative_dir = "West";}
+    } else if (x_hops < y_hops) {
+        if (y_dirn) { relative_dir = "North";}
+        else { relative_dir = "South";}
+    } else {//x_hops == y_hops
+        if (x_dirn > 0 && y_dirn >0) {
+            if (inport_dirn == "East") relative_dir = "North";//Prevents turn-around
+            else if (inport_dirn == "North") relative_dir = "East";
+            else relative_dir = "North";
+        }
+        else if (x_dirn > 0 && y_dirn <0) {
+            if (inport_dirn == "East") relative_dir = "South";
+            else if (inport_dirn == "South") relative_dir = "East";
+            else relative_dir = "South";
+        }
+        else if (x_dirn < 0 && y_dirn <0) {
+            if (inport_dirn == "West") relative_dir = "South";
+            else if (inport_dirn == "South") relative_dir = "West";
+            else relative_dir = "South";
+        }
+        else if (x_dirn < 0 && y_dirn >0) {
+            if (inport_dirn == "West") relative_dir = "North";
+            else if (inport_dirn == "North") relative_dir = "West";
+            else relative_dir = "North";
+        }
+    }
+
+    if (relative_dir == "North") oppsite_relative_dir = "South";
+    else if (relative_dir == "East" ) oppsite_relative_dir = "West";
+    else if (relative_dir == "South") oppsite_relative_dir = "North";
+    else oppsite_relative_dir = "East";
+
+    //Get masked direction: oppsite_relative_dir and inport_dirn
+    masked_direction.insert(inport_dirn);
+    masked_direction.insert(oppsite_relative_dir);
+
+    std::pair(q_table_dir, use_QRA) = q_table_lookup(masked_direction, q_table);
+
+
+    for (int link = 0; link < m_routing_table[vnet].size(); link++) {
+        PortDirection link_to_action = "Unknown";
+        if (msg_destination.intersectionIsNotEmpty(m_routing_table[vnet][link])) {
+            link_to_action = m_inports_idx2dirn[link];
+            dyxy_candidate_dir.insert(link_to_action);
+        }
+
+    }
+
+    least_congested_dir = find_least_congested_dir(dyxy_candidate_dir,congestion_table);
+
+    if (use_QRA) outport_dirn = q_table_dir;
+    else outport_dirn = least_congested_dir;
+
+    return m_outports_dirn2idx[outport_dirn];
+
 }
+
+//SHX
+void
+RoutingUnit::calQTable(int outport, Router *router, int outvc)
+{
+    float alpha = 0.2;
+    float gamma = 0.5;
+    int r_value;
+    float dest_router_max_q = 0;
+    PortDirection port_2_dirn = m_outports_idx2dirn[outport];
+    std::unordered_map<PortDirection, float>* q_table = router->getQTable();
+    std::unordered_map<PortDirection, float*> q_max_table = router->getQmaxTable();
+    OutputUnit *output_unit = router->getOutputUnit((unsigned)outport);
+    int credit_count = output_unit->get_credit_count(outvc);
+    if(credit_count == 0){
+        r_value = 0;
+        DPRINTF(RubyNetwork, "Has no free credit");}
+    else if(credit_count <= 2)
+        r_value = 1;
+    else
+        r_value = 2;
+    // std::cout<<"From "<<router->get_id()<<" to "<<port_2_dirn<<" r_value is "<<r_value<<std::endl;
+    if(port_2_dirn != "Local") {
+        dest_router_max_q = *q_max_table[port_2_dirn];
+        for (auto& pair : *q_table) {
+            if(port_2_dirn == pair.first) {
+                pair.second = (1-alpha) * pair.second + alpha * (r_value + gamma * dest_router_max_q);
+            }
+        }
+    }
+}
+
+
+//SHX
+bool contains(const std::set<PortDirection>& list, PortDirection dir) {
+    return std::find(list.begin(), list.end(), dir) != list.end();
+}
+
+//SHX
+std::pair<PortDirection, bool> q_table_lookup(std::set<PortDirection> masked_direction,
+                                              std::unordered_map<PortDirection, float>* q_table) {
+    float threshold = 1;//This is the value to trigger QRA, lesser difference will not kick in
+    float abs_difference = 0;
+    float max_abs_difference = 0;
+    bool larger = false;
+    float max_q = 0;
+    bool use_QRA = false;
+    bool use_best_action = true;
+    uint32_t sum_actions = 0;
+    PortDirection max_q_dir = "Unknown";
+    PortDirection output_dir = "Unknown";
+    std::vector<PortDirection> candidate_dir;
+    for (auto& pair : *q_table){
+        PortDirection direction = pair.first;
+        float q_value = pair.second;
+        if(!contains(masked_direction, direction)) {
+            candidate_dir.push_back(direction);
+            sum_actions += 1;
+            abs_difference = abs(pair.second - max_q);
+            larger = (q_value >= max_q);
+            if (larger) {
+                max_q = q_value;
+                max_q_dir = direction;
+            }
+            if (abs_difference > max_abs_difference) max_abs_difference = abs_difference;
+        }
+    }
+    if (max_abs_difference > threshold) use_QRA = true;
+    use_best_action = use_qmax_action(sum_actions);
+    if (candidate_dir.size()==1) output_dir = max_q_dir;
+    else if (use_best_action) output_dir = max_q_dir;
+    else {
+        candidate_dir.erase(std::remove(candidate_dir.begin(), candidate_dir.end(), max_q_dir), candidate_dir.end());
+        output_dir = candidate_dir[rand() % candidate_dir.size()];
+    }
+    return std::make_pair(output_dir, use_QRA);
+}
+
+bool use_qmax_action(u_int32_t sum_actions) {
+    float epsilon = 0.1;
+    float best_action_possibility = 0;
+    bool use_best_action = false;
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(0.0, 1.0);
+    float random_value = distribution(generator);
+    best_action_possibility = 1 - epsilon + (epsilon / sum_actions);
+    if (random_value <= best_action_possibility) { use_best_action = true; }
+    return use_best_action;
+}
+
+PortDirection find_least_congested_dir(std::set<PortDirection> candidate_dir,
+                                       std::unordered_map<PortDirection, uint32_t*> m_congestion_table){
+    PortDirection min_dir = "Unknown"; // 用于存储最小值的 PortDirection
+    uint32_t min_value = std::numeric_limits<uint32_t>::max(); // 初始化为 uint32_t 可能的最大值
+
+    for (const auto& pair : m_congestion_table) {
+        PortDirection direction = pair.first;
+        if (contains(candidate_dir, direction)){
+            // 检查指针是否非空
+            if (pair.second != nullptr && *(pair.second) < min_value) {
+                min_value = *(pair.second);
+                min_dir = pair.first;
+            }
+        }
+    }
+    return min_dir;
+}
+
+// // Marked
+// std::vector<int>
+// RoutingUnit::get_weight_table()
+// {
+//     return m_weight_table;
+// }
 
 } // namespace garnet
 } // namespace ruby

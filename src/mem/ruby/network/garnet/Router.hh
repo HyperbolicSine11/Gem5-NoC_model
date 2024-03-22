@@ -141,6 +141,21 @@ class Router : public BasicRouter, public Consumer
 
     bool functionalRead(Packet *pkt, WriteMask &mask);
     uint32_t functionalWrite(Packet *);
+    // void printWeightTable();
+    //SHX
+    float m_init_q_value;
+    float m_max_q_value;
+    void addtoQTable(Router *router, PortDirection src_router_dirn);
+    void addtoRTable(int port);
+    void addtoCongestionTable(PortDirection dst_router_dirn, Router *router);
+    void refresh_r_table();
+    void cal_max_q_value();
+    void calQTable(int port, Router* router, int vc);
+    unsigned get_port_credit_count(unsigned port);
+    inline std::unordered_map<PortDirection, float>* getQTable() {return &q_table;}
+    inline std::unordered_map<PortDirection, uint32_t*> getCongestionTable() {return m_congestion_table;}
+    inline std::unordered_map<int, int> getRTable() {return r_table;}
+
 
   private:
     Cycles m_latency;
@@ -152,8 +167,15 @@ class Router : public BasicRouter, public Consumer
     SwitchAllocator switchAllocator;
     CrossbarSwitch crossbarSwitch;
 
+    //SHX
+    std::unordered_map<PortDirection, float> q_table;//key: string ,value: float and pointer
+    std::unordered_map<int, int> r_table;
+    std::unordered_map<PortDirection, uint32_t*> m_congestion_table;//Adjacent Router Congestion
     std::vector<std::shared_ptr<InputUnit>> m_input_unit;
     std::vector<std::shared_ptr<OutputUnit>> m_output_unit;
+    std::vector<int> weight_table;
+    uint32_t get_total_ocp_vc();
+    uint32_t m_num_total_ocp_vc;
 
     // Statistical variables required for power computations
     statistics::Scalar m_buffer_reads;
