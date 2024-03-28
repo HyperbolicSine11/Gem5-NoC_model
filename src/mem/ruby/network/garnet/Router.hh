@@ -146,15 +146,17 @@ class Router : public BasicRouter, public Consumer
     float m_init_q_value;
     float m_max_q_value;
     void addtoQTable(Router *router, PortDirection src_router_dirn);
+    void addtoQmaxTable(Router *router, PortDirection src_router_dirn);
     void addtoRTable(int port);
     void addtoCongestionTable(PortDirection dst_router_dirn, Router *router);
-    void refresh_r_table();
+    //void refresh_r_table();
     void cal_max_q_value();
-    void calQTable(int port, Router* router, int vc);
+    void calQTable(int port, Router* router);
     unsigned get_port_credit_count(unsigned port);
     inline std::unordered_map<PortDirection, float>* getQTable() {return &q_table;}
+    inline std::unordered_map<PortDirection, float*> getQmaxTable() {return q_max_table;}
     inline std::unordered_map<PortDirection, uint32_t*> getCongestionTable() {return m_congestion_table;}
-    inline std::unordered_map<int, int> getRTable() {return r_table;}
+    //inline std::unordered_map<int, int> getRTable() {return r_table;}
 
 
   private:
@@ -169,7 +171,8 @@ class Router : public BasicRouter, public Consumer
 
     //SHX
     std::unordered_map<PortDirection, float> q_table;//key: string ,value: float and pointer
-    std::unordered_map<int, int> r_table;
+    std::unordered_map<PortDirection, float*> q_max_table;
+    // std::unordered_map<int, int> r_table;
     std::unordered_map<PortDirection, uint32_t*> m_congestion_table;//Adjacent Router Congestion
     std::vector<std::shared_ptr<InputUnit>> m_input_unit;
     std::vector<std::shared_ptr<OutputUnit>> m_output_unit;

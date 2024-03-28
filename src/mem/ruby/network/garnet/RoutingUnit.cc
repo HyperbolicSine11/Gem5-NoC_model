@@ -313,22 +313,22 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
         if (y_dirn) { relative_dir = "North";}
         else { relative_dir = "South";}
     } else {//x_hops == y_hops
-        if (x_dirn > 0 && y_dirn >0) {
+        if (x_dirn == 0 && y_dirn == 0) {
             if (inport_dirn == "East") relative_dir = "North";//Prevents turn-around
             else if (inport_dirn == "North") relative_dir = "East";
             else relative_dir = "North";
         }
-        else if (x_dirn > 0 && y_dirn <0) {
+        else if (x_dirn == 0 && y_dirn != 0) {
             if (inport_dirn == "East") relative_dir = "South";
             else if (inport_dirn == "South") relative_dir = "East";
             else relative_dir = "South";
         }
-        else if (x_dirn < 0 && y_dirn <0) {
+        else if (x_dirn != 0 && y_dirn !=0 ) {
             if (inport_dirn == "West") relative_dir = "South";
             else if (inport_dirn == "South") relative_dir = "West";
             else relative_dir = "South";
         }
-        else if (x_dirn < 0 && y_dirn >0) {
+        else if (x_dirn != 0 && y_dirn == 0) {
             if (inport_dirn == "West") relative_dir = "North";
             else if (inport_dirn == "North") relative_dir = "West";
             else relative_dir = "North";
@@ -344,8 +344,10 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
     masked_direction.insert(inport_dirn);
     masked_direction.insert(oppsite_relative_dir);
 
-    std::pair(q_table_dir, use_QRA) = q_table_lookup(masked_direction, q_table);
+    std::pair<PortDirection, bool> q_table_result = q_table_lookup(masked_direction, q_table);
 
+    q_table_dir = q_table_result.first;
+    use_QRA = q_table_result.second;
 
     for (int link = 0; link < m_routing_table[vnet].size(); link++) {
         PortDirection link_to_action = "Unknown";
@@ -361,51 +363,80 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
     if (use_QRA) outport_dirn = q_table_dir;
     else outport_dirn = least_congested_dir;
 
+    //calQTable(m_outports_dirn2idx[outport_dirn],m_router);
+
     return m_outports_dirn2idx[outport_dirn];
 
 }
 
 //SHX
 void
-RoutingUnit::calQTable(int outport, Router *router, int outvc)
+RoutingUnit::calQTable(int outport, Router *router)
 {
     float alpha = 0.2;
     float gamma = 0.5;
     int r_value;
-    float dest_router_max_q = 0;
     PortDirection port_2_dirn = m_outports_idx2dirn[outport];
     std::unordered_map<PortDirection, float>* q_table = router->getQTable();
+    std::unordered_map<PortDirection, uint32_t*> congestion_table = router->getCongestionTable();
     std::unordered_map<PortDirection, float*> q_max_table = router->getQmaxTable();
-    OutputUnit *output_unit = router->getOutputUnit((unsigned)outport);
-    int credit_count = output_unit->get_credit_count(outvc);
-    if(credit_count == 0){
-        r_value = 0;
-        DPRINTF(RubyNetwork, "Has no free credit");}
-    else if(credit_count <= 2)
-        r_value = 1;
-    else
+    uint32_t congestion = *(congestion_table[port_2_dirn]);
+    float dest_router_max_q = *(q_max_table[port_2_dirn]);
+    std::cout<<"Router "<<(router->get_id())<<" Q Table:"<<std::endl;
+    if (q_table) {
+    for (const auto& pair : *q_table) {
+            std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+    } else {
+        std::cout << "QTable pointer is null!" << std::endl;
+    }
+    std::cout<<" "<<std::endl;
+    if(congestion == 0){
         r_value = 2;
-    // std::cout<<"From "<<router->get_id()<<" to "<<port_2_dirn<<" r_value is "<<r_value<<std::endl;
-    if(port_2_dirn != "Local") {
-        dest_router_max_q = *q_max_table[port_2_dirn];
-        for (auto& pair : *q_table) {
-            if(port_2_dirn == pair.first) {
-                pair.second = (1-alpha) * pair.second + alpha * (r_value + gamma * dest_router_max_q);
-            }
+        DPRINTF(RubyNetwork, "R is 2");
+        }
+    else if(congestion <= 4){
+        r_value = 1;
+        DPRINTF(RubyNetwork, "R is 1");
+    }
+    else {
+        r_value = 0;
+        DPRINTF(RubyNetwork, "R is 0");
+    }
+
+    for (auto& pair : *q_table) {
+        if(port_2_dirn == pair.first) {
+            pair.second = (1-alpha) * pair.second + alpha * (r_value + gamma * dest_router_max_q);
         }
     }
+
 }
 
 
 //SHX
-bool contains(const std::set<PortDirection>& list, PortDirection dir) {
+bool
+RoutingUnit::contains(const std::set<PortDirection>& list, PortDirection dir) {
     return std::find(list.begin(), list.end(), dir) != list.end();
 }
 
+bool
+RoutingUnit::use_qmax_action(u_int32_t sum_actions) {
+    float epsilon = 0.1;
+    float best_action_possibility = 0;
+    bool use_best_action = false;
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(0.0, 1.0);
+    float random_value = distribution(generator);
+    best_action_possibility = 1 - epsilon + (epsilon / sum_actions);
+    if (random_value <= best_action_possibility) { use_best_action = true; }
+    return use_best_action;
+}
+
 //SHX
-std::pair<PortDirection, bool> q_table_lookup(std::set<PortDirection> masked_direction,
+std::pair<PortDirection, bool>
+RoutingUnit::q_table_lookup(std::set<PortDirection> masked_direction,
                                               std::unordered_map<PortDirection, float>* q_table) {
-    float threshold = 1;//This is the value to trigger QRA, lesser difference will not kick in
+    float threshold = 0.2;//This is the value to trigger QRA, lesser difference will not kick in
     float abs_difference = 0;
     float max_abs_difference = 0;
     bool larger = false;
@@ -439,27 +470,22 @@ std::pair<PortDirection, bool> q_table_lookup(std::set<PortDirection> masked_dir
         candidate_dir.erase(std::remove(candidate_dir.begin(), candidate_dir.end(), max_q_dir), candidate_dir.end());
         output_dir = candidate_dir[rand() % candidate_dir.size()];
     }
+    if(use_QRA)
+    std::cout<<"QRA used."<<std::endl;
+    else
+    std::cout<<"DyXY used."<<std::endl;
     return std::make_pair(output_dir, use_QRA);
 }
 
-bool use_qmax_action(u_int32_t sum_actions) {
-    float epsilon = 0.1;
-    float best_action_possibility = 0;
-    bool use_best_action = false;
-    std::default_random_engine generator;
-    std::uniform_real_distribution<float> distribution(0.0, 1.0);
-    float random_value = distribution(generator);
-    best_action_possibility = 1 - epsilon + (epsilon / sum_actions);
-    if (random_value <= best_action_possibility) { use_best_action = true; }
-    return use_best_action;
-}
 
-PortDirection find_least_congested_dir(std::set<PortDirection> candidate_dir,
-                                       std::unordered_map<PortDirection, uint32_t*> m_congestion_table){
+
+PortDirection
+RoutingUnit::find_least_congested_dir(std::set<PortDirection> candidate_dir,
+                                       std::unordered_map<PortDirection, uint32_t*> congestion_table){
     PortDirection min_dir = "Unknown"; // 用于存储最小值的 PortDirection
     uint32_t min_value = std::numeric_limits<uint32_t>::max(); // 初始化为 uint32_t 可能的最大值
 
-    for (const auto& pair : m_congestion_table) {
+    for (const auto& pair : congestion_table) {
         PortDirection direction = pair.first;
         if (contains(candidate_dir, direction)){
             // 检查指针是否非空

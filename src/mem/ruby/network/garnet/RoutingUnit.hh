@@ -31,6 +31,7 @@
 #ifndef __MEM_RUBY_NETWORK_GARNET_0_ROUTINGUNIT_HH__
 #define __MEM_RUBY_NETWORK_GARNET_0_ROUTINGUNIT_HH__
 
+
 #include "mem/ruby/common/Consumer.hh"
 #include "mem/ruby/common/NetDest.hh"
 #include "mem/ruby/network/garnet/CommonTypes.hh"
@@ -83,7 +84,7 @@ class RoutingUnit
     // of vnets or if the vector supports all vnets.
     bool supportsVnet(int vnet, std::vector<int> sVnets);
     std::vector<int> get_weight_table();
-    void calQTable(int outport, Router *router, int outvc);
+    void calQTable(int outport, Router *router);
 
   private:
     Router *m_router;
@@ -97,6 +98,13 @@ class RoutingUnit
     std::map<int, PortDirection> m_inports_idx2dirn;
     std::map<int, PortDirection> m_outports_idx2dirn;
     std::map<PortDirection, int> m_outports_dirn2idx;
+
+    std::pair<PortDirection, bool> q_table_lookup(std::set<PortDirection> masked_direction,
+                                              std::unordered_map<PortDirection, float>* q_table);
+    bool contains(const std::set<PortDirection>& list, PortDirection dir);
+    bool use_qmax_action(u_int32_t sum_actions);
+    PortDirection find_least_congested_dir(std::set<PortDirection> candidate_dir,
+                                       std::unordered_map<PortDirection, uint32_t*> congestion_table);
 };
 
 } // namespace garnet

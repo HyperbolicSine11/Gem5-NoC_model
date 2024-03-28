@@ -82,7 +82,7 @@ Router::wakeup()
         m_input_unit[inport]->wakeup();
     }
 
-    this->refresh_r_table();
+    //this->refresh_r_table();
     m_num_total_ocp_vc = get_total_ocp_vc();
     // std::cout<<m_id<<"Q table:"<<std::endl;
     // for (const auto& pair : q_table) {
@@ -106,7 +106,7 @@ Router::wakeup()
     // Switch Traversal
     crossbarSwitch.wakeup();
 
-    std::cout<<m_num_total_ocp_vc<<std::endl;
+    // std::cout<<m_num_total_ocp_vc<<std::endl;
 
 }
 
@@ -158,7 +158,7 @@ Router::addOutPort(PortDirection outport_dirn,
     routingUnit.addRoute(routing_table_entry);
     routingUnit.addWeight(link_weight);
     routingUnit.addOutDirection(outport_dirn, port_num);
-    this->addtoRTable(port_num);
+    // this->addtoRTable(port_num);
 }
 
 PortDirection
@@ -351,19 +351,29 @@ Router::addtoQTable(Router *router, PortDirection dst_router_dirn)
 
 //SHX
 void
+Router::addtoQmaxTable(Router *router, PortDirection dst_router_dirn)
+{
+    float *q_max_value = &(router->m_max_q_value);
+    q_max_table.insert({dst_router_dirn,q_max_value});
+    //std::cout<<router->get_id()<<":"<<q_table[dst_router_dirn]<<std::endl;
+}
+
+
+//SHX
+void
 Router::addtoCongestionTable(PortDirection dst_router_dirn, Router *router)
 {
     uint32_t *router_total_ocp_vc= &(router->m_num_total_ocp_vc);
     m_congestion_table.insert({dst_router_dirn, router_total_ocp_vc});
 }
 
-//SHX
-void
-Router::addtoRTable(int port)
-{
-    int r_value = 0;
-    r_table.insert({port,r_value});
-}
+// //SHX
+// void
+// Router::addtoRTable(int port)
+// {
+//     int r_value = 0;
+//     r_table.insert({port,r_value});
+// }
 
 
 //SHX
@@ -375,14 +385,14 @@ Router::get_port_credit_count(unsigned port)
     return credit_sum;
 }
 
-//SHX
-void
-Router::refresh_r_table()
-{
-    for (auto& pair : r_table) {
-        pair.second = this->get_port_credit_count(pair.first);
-    }
-}
+// //SHX
+// void
+// Router::refresh_r_table()
+// {
+//     for (auto& pair : r_table) {
+//         pair.second = this->get_port_credit_count(pair.first);
+//     }
+// }
 
 //SHX
 void
@@ -397,8 +407,8 @@ Router::cal_max_q_value()
 
 //SHX
 void
-Router::calQTable(int port, Router* router, int vc){
-    routingUnit.calQTable(port,router,vc);
+Router::calQTable(int port, Router* router){
+    routingUnit.calQTable(port,router);
 }
 
 //SHX

@@ -202,7 +202,8 @@ SwitchAllocator::arbitrate_outports()
                         m_router->curCycle());
 
                 //SHX
-                m_router->calQTable(outport, m_router, outvc);
+                if(m_router->getPortDirectionName(output_unit->get_direction())!="Local")
+                m_router->calQTable(outport, m_router);
                 // Update outport field in the flit since this is
                 // used by CrossbarSwitch code to send it out of
                 // correct outport.

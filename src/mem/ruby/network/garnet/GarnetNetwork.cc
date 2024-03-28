@@ -366,7 +366,8 @@ GarnetNetwork::makeInternalLink(SwitchID src, SwitchID dest, BasicLink* link,
 
     //SHX
     m_routers[src]->addtoQTable(m_routers[dest],src_outport_dirn);
-    m_routers[src]->addtoRouterTable(src_outport_dirn,m_routers[dest]);
+    m_routers[src]->addtoQmaxTable(m_routers[dest],src_outport_dirn);
+    m_routers[src]->addtoCongestionTable(src_outport_dirn,m_routers[dest]);
 }
 
 // Total routers in the network
