@@ -80,6 +80,13 @@ class RoutingUnit
                                   std::unordered_map<PortDirection, float>* q_table,
                                   std::unordered_map<PortDirection, uint32_t*> congestion_table);
 
+    int outportComputeDyXY(RouteInfo route,
+                                  std::unordered_map<PortDirection, uint32_t*> congestion_table);
+
+    int outportComputeQRA(int vnet,
+                                 NetDest msg_destination,
+                                 std::unordered_map<PortDirection, float>* q_table);
+
     // Returns true if vnet is present in the vector
     // of vnets or if the vector supports all vnets.
     bool supportsVnet(int vnet, std::vector<int> sVnets);
@@ -88,7 +95,6 @@ class RoutingUnit
 
   private:
     Router *m_router;
-
     // Routing Table
     std::vector<std::vector<NetDest>> m_routing_table;
     std::vector<int> m_weight_table;

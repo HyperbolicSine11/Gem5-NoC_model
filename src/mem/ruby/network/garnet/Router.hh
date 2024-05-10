@@ -157,6 +157,13 @@ class Router : public BasicRouter, public Consumer
     inline std::unordered_map<PortDirection, float*> getQmaxTable() {return q_max_table;}
     inline std::unordered_map<PortDirection, uint32_t*> getCongestionTable() {return m_congestion_table;}
     //inline std::unordered_map<int, int> getRTable() {return r_table;}
+    inline void printQTable() {
+      std::cout <<"Router "<<m_id<<" QTable:"<<std::endl;
+      for (const auto& pair : q_table) {
+        std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+        std::cout <<std::endl; 
+      }
 
 
   private:

@@ -48,6 +48,8 @@ namespace ruby
 
 namespace garnet
 {
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 
 Router::Router(const Params &p)
   : BasicRouter(p), Consumer(this), m_latency(p.latency),
@@ -65,9 +67,13 @@ void
 Router::init()
 {
     BasicRouter::init();
-
+    m_max_q_value = 0;
     switchAllocator.init();
     crossbarSwitch.init();
+    Cycles infinite_latency = (Cycles)100;
+    //if(m_network_ptr->getCongetedRouter()== m_id){m_latency = infinite_latency;} //Not working
+    //if((int)14 == m_id){m_latency = infinite_latency;} //Not working
+
 }
 
 void
@@ -398,7 +404,7 @@ Router::get_port_credit_count(unsigned port)
 void
 Router::cal_max_q_value()
 {
-    m_max_q_value = 0;
+
     // get max q value
     for (const auto& pair : q_table){
         if(pair.second > m_max_q_value) m_max_q_value = pair.second;
@@ -421,6 +427,8 @@ Router::get_total_ocp_vc(){
     }
     return num_total_ocp_vc;
 }
+
+#pragma GCC pop_options
 
 } // namespace garnet
 } // namespace ruby

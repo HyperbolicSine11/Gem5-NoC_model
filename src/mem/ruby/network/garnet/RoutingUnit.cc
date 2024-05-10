@@ -48,6 +48,9 @@ namespace ruby
 namespace garnet
 {
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
 RoutingUnit::RoutingUnit(Router *router)
 {
     m_router = router;
@@ -196,6 +199,10 @@ RoutingUnit::outportCompute(RouteInfo route, int inport,
         // any custom algorithm
         case CUSTOM_: outport =
             outportComputeCustom(route, inport_dirn, m_router->getQTable(), m_router->getCongestionTable()); break;
+        case DYXY_:   outport =
+            outportComputeDyXY(route, m_router->getCongestionTable()); break;
+        case QRA_:   outport =
+            outportComputeQRA(route.vnet, route.net_dest, m_router->getQTable()); break;
         default: outport =
             lookupRoutingTable(route.vnet, route.net_dest); break;
     }
@@ -370,11 +377,12 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
 }
 
 //SHX
-void
-RoutingUnit::calQTable(int outport, Router *router)
+__attribute__ ((__optimize__ ("-O0"))) void
+RoutingUnit::calQTable(int outport, Router *router) 
 {
-    float alpha = 0.2;
-    float gamma = 0.5;
+    float alpha = 0.1;
+    float gamma = 0.8;
+    int flag = 0;
     int r_value;
     PortDirection port_2_dirn = m_outports_idx2dirn[outport];
     std::unordered_map<PortDirection, float>* q_table = router->getQTable();
@@ -382,21 +390,25 @@ RoutingUnit::calQTable(int outport, Router *router)
     std::unordered_map<PortDirection, float*> q_max_table = router->getQmaxTable();
     uint32_t congestion = *(congestion_table[port_2_dirn]);
     float dest_router_max_q = *(q_max_table[port_2_dirn]);
-    std::cout<<"Router "<<(router->get_id())<<" Q Table:"<<std::endl;
-    if (q_table) {
-    for (const auto& pair : *q_table) {
-            std::cout << pair.first << ": " << pair.second << std::endl;
-        }
-    } else {
-        std::cout << "QTable pointer is null!" << std::endl;
-    }
-    std::cout<<" "<<std::endl;
+    //std::cout<<"Router "<<(router->get_id())<<" Q Table:"<<std::endl;
+    // if (q_table) {
+    // for (const auto& pair : *q_table) {
+    //         //std::cout << pair.first << ": " << pair.second << std::endl;
+    //     }
+    // } else {
+    //     //std::cout << "QTable pointer is null!" << std::endl;
+    // }
+    // //std::cout<<" "<<std::endl;
     if(congestion == 0){
-        r_value = 2;
-        DPRINTF(RubyNetwork, "R is 2");
-        }
-    else if(congestion <= 4){
         r_value = 1;
+        DPRINTF(RubyNetwork, "R is 3");
+        }
+    else if(congestion <= 2){
+        r_value = 0.7;
+        DPRINTF(RubyNetwork, "R is 2");
+    }
+    else if(congestion <= 3){
+        r_value = 0.3;
         DPRINTF(RubyNetwork, "R is 1");
     }
     else {
@@ -407,6 +419,7 @@ RoutingUnit::calQTable(int outport, Router *router)
     for (auto& pair : *q_table) {
         if(port_2_dirn == pair.first) {
             pair.second = (1-alpha) * pair.second + alpha * (r_value + gamma * dest_router_max_q);
+            if(pair.second > (float)10) std::cout<<"OVERFLOW!!! "<<router->get_id()<<port_2_dirn<<dest_router_max_q<<std::endl;
         }
     }
 
@@ -436,7 +449,7 @@ RoutingUnit::use_qmax_action(u_int32_t sum_actions) {
 std::pair<PortDirection, bool>
 RoutingUnit::q_table_lookup(std::set<PortDirection> masked_direction,
                                               std::unordered_map<PortDirection, float>* q_table) {
-    float threshold = 0.2;//This is the value to trigger QRA, lesser difference will not kick in
+    float threshold = 0.8;//This is the value to trigger QRA, lesser difference will not kick in
     float abs_difference = 0;
     float max_abs_difference = 0;
     bool larger = false;
@@ -498,6 +511,135 @@ RoutingUnit::find_least_congested_dir(std::set<PortDirection> candidate_dir,
     return min_dir;
 }
 
+
+
+
+
+int
+RoutingUnit::outportComputeDyXY(RouteInfo route,
+                                  std::unordered_map<PortDirection, uint32_t*> congestion_table){
+
+    NetDest msg_destination = route.net_dest;
+    PortDirection least_congested_dir = "Unkown";
+    PortDirection outport_dirn = "Unkown";
+    std::set<PortDirection> dyxy_candidate_dir;
+    int vnet = route.vnet;
+
+    for (int link = 0; link < m_routing_table[vnet].size(); link++) {
+        PortDirection link_to_action = "Unknown";
+        if (msg_destination.intersectionIsNotEmpty(m_routing_table[vnet][link])) {
+            link_to_action = m_inports_idx2dirn[link];
+            dyxy_candidate_dir.insert(link_to_action);
+        }
+
+    }
+
+    least_congested_dir = find_least_congested_dir(dyxy_candidate_dir,congestion_table);
+
+    outport_dirn = least_congested_dir;
+    return m_outports_dirn2idx[outport_dirn];
+}
+
+
+// SHX
+// QRoutingAlgorithm
+int
+RoutingUnit::outportComputeQRA(int vnet,
+                                 NetDest msg_destination,
+                                 std::unordered_map<PortDirection, float>* q_table)
+{
+    float epsilon = 0.1;
+
+    std::vector<int> output_link_candidates;
+    std::vector<int> lst_q_max_links;
+    std::vector<int> lst_other_links;
+    std::vector<PortDirection> output_link_actions;
+    std::vector<PortDirection> lst_q_max_actions;
+    std::vector<PortDirection> lst_other_actions;
+    float q_max_value = -1;
+    int sum_actions = 0;
+    float best_action_possibility = 0;
+    bool use_best_action = false;
+    PortDirection action_candidate;
+    int link_candidate =-1;
+
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(0.0, 1.0);
+    float random_value = distribution(generator);
+
+    // Collect all possible links
+    for (int link = 0; link < m_routing_table[vnet].size(); link++) {
+        if (msg_destination.intersectionIsNotEmpty(
+            m_routing_table[vnet][link])) {
+                output_link_candidates.push_back(link);
+                sum_actions++;
+        }
+    }
+
+    for (int iter = 0; iter < output_link_candidates.size(); iter++) {
+        PortDirection link_to_action = m_inports_idx2dirn[output_link_candidates[iter]];
+        output_link_actions.push_back(link_to_action);
+    }
+
+
+    // Collect highest Q value action list
+    for (std::vector<PortDirection>::iterator it = output_link_actions.begin();
+        it != output_link_actions.end(); ++it) {
+            PortDirection& dir = *it;
+            for (const auto& pair : *q_table) {
+            PortDirection target = pair.first;
+            if (dir == target) {
+                    if (q_max_value == -1 || pair.second > q_max_value) {
+                        q_max_value = pair.second;
+                        lst_other_actions.insert(lst_q_max_actions.end(),
+                                                lst_other_actions.begin(),
+                                                lst_other_actions.end());
+                        lst_q_max_actions.clear();
+                        lst_q_max_actions.push_back(pair.first);
+                    }
+                    else if (pair.second == q_max_value) {
+                        lst_q_max_actions.push_back(pair.first);
+                    }
+                    else {
+                        lst_other_actions.push_back(pair.first);
+                    }
+                }
+            }
+        }
+
+    for (size_t i=0; i < lst_q_max_actions.size(); ++i) {
+        PortDirection& dir = lst_q_max_actions[i];
+        int action_to_link = m_inports_dirn2idx[dir];
+        lst_q_max_links.push_back(action_to_link);
+    }
+
+    for (size_t i=0; i < lst_other_actions.size(); ++i) {
+        PortDirection& dir = lst_other_actions[i];
+        int action_to_link = m_inports_dirn2idx[dir];
+        lst_other_links.push_back(action_to_link);
+    }
+
+    best_action_possibility = 1 - epsilon + (epsilon / sum_actions);
+    if (random_value <= best_action_possibility) { use_best_action = true; }
+
+
+    if (use_best_action) {
+        link_candidate = lst_q_max_links[rand() % lst_q_max_links.size()];
+    }
+    else {
+        if(lst_other_links.size() == 0) {
+            link_candidate = lst_q_max_links[rand() % lst_q_max_links.size()];
+        }
+        else  {
+            link_candidate = lst_other_links[rand() % lst_other_links.size()];
+        }
+    }
+
+    return link_candidate;
+}
+
+
+#pragma GCC pop_options
 // // Marked
 // std::vector<int>
 // RoutingUnit::get_weight_table()
