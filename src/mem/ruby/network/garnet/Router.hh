@@ -162,7 +162,7 @@ class Router : public BasicRouter, public Consumer
       for (const auto& pair : q_table) {
         std::cout << pair.first << ": " << pair.second << std::endl;
         }
-        std::cout <<std::endl; 
+        std::cout <<std::endl;
       }
 
 

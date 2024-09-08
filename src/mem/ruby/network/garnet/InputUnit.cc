@@ -179,7 +179,8 @@ void
 InputUnit::resetStats()
 {
     for (int j = 0; j < m_num_buffer_reads.size(); j++) {
-        m_num_buffer_reads[j] = 0;
+        m_num_buffer_reads[j]
+        = 0;
         m_num_buffer_writes[j] = 0;
     }
 }

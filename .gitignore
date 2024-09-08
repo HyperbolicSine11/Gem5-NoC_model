@@ -32,3 +32,14 @@ configs/example/memcheck.cfg
 configs/dram/lowp_sweep.cfg
 .pyenv
 .vscode
+/2by2*
+/4by4*
+/8by8*
+network_stats.txt
+run_gem5_sims.sh
+src/bootcamp/
+src/mem/ruby/network/garnet/.hg/
+src/mem/ruby/network/garnet/Doxygen.config
+src/mem/ruby/network/garnet/html/
+src/mem/ruby/network/garnet/latex/
+src/mem/ruby/network/garnet/open_html.s

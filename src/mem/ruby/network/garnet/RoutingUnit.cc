@@ -378,7 +378,7 @@ RoutingUnit::outportComputeCustom(RouteInfo route,
 
 //SHX
 __attribute__ ((__optimize__ ("-O0"))) void
-RoutingUnit::calQTable(int outport, Router *router) 
+RoutingUnit::calQTable(int outport, Router *router)
 {
     float alpha = 0.1;
     float gamma = 0.8;

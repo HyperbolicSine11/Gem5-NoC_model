@@ -119,6 +119,14 @@ parser.add_argument(
                         Set to -1 to inject randomly in all vnets.",
 )
 
+parser.add_argument(
+    "--congested-router",
+    type=int,
+    default=-1,
+    help="Set a congested node.\
+                        Set to -1 to disable.",
+)
+
 #
 # Add the ruby specific and protocol specific options
 #

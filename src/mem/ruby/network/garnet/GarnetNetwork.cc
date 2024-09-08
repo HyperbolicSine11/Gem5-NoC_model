@@ -65,6 +65,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     : Network(p)
 {
     m_num_rows = p.num_rows;
+    //m_congested_router = p.congested_router;
     m_ni_flit_size = p.ni_flit_size;
     m_max_vcs_per_vnet = 0;
     m_buffers_per_data_vc = p.buffers_per_data_vc;
@@ -553,6 +554,7 @@ GarnetNetwork::regStats()
             m_ctrl_traffic_distribution[source].push_back(ctrl_packets);
         }
     }
+
 }
 
 void
@@ -585,6 +587,9 @@ GarnetNetwork::collateStats()
     for (int i = 0; i < m_routers.size(); i++) {
         m_routers[i]->collateStats();
     }
+    for (int router = 0; router < m_routers.size(); ++router) {
+        m_routers[router]->printQTable();
+    }
 }
 
 void
@@ -605,6 +610,9 @@ void
 GarnetNetwork::print(std::ostream& out) const
 {
     out << "[GarnetNetwork]";
+    for (int router = 0; router < m_routers.size(); ++router) {
+        m_routers[router]->printQTable();
+    }
 }
 
 void

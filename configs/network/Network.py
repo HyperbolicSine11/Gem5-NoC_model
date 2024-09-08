@@ -119,6 +119,14 @@ def define_options(parser):
             channel for each virtual network""",
     )
 
+    # parser.add_argument(
+    #     "--congested-router",
+    #     type=int,
+    #     default=-1,
+    #     help="Set a congested node.\
+    #                         Set to -1 to disable.",
+    # )
+
 
 def create_network(options, ruby):
 
@@ -169,6 +177,7 @@ def init_network(options, network, InterfaceClass):
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
+        # network.congested_router = options.congested_router
 
         # Create Bridges and connect them to the corresponding links
         for intLink in network.int_links:

@@ -272,7 +272,14 @@ GarnetSyntheticTraffic::generatePkt()
             (int)(num_destinations/2)-1 , (int)(num_destinations/2)
             );
     } else if (traffic == CUSTOM_) {
-        destination = random_mt.random<unsigned>(0, num_destinations - 1);
+        int center_axis = (int)(radix/2);
+        int center = center_axis*radix + center_axis;
+        if(source == center)
+            destination = center_axis*radix + center_axis - 1;
+        else if(source == center - 1)
+            destination = center;
+        else
+            destination = random_mt.random<unsigned>(0, num_destinations - 1);
     }
     else {
         fatal("Unknown Traffic Type: %s!\n", traffic);
